@@ -1,0 +1,1222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice AI Agent — Clinical Appointments</title>
+<style>
+  /* ── Reset + base ────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg:        #0f1117;
+    --bg2:       #1a1d27;
+    --bg3:       #22263a;
+    --border:    #2e3250;
+    --accent:    #6c63ff;
+    --accent2:   #a78bfa;
+    --green:     #22c55e;
+    --red:       #ef4444;
+    --amber:     #f59e0b;
+    --text:      #e2e8f0;
+    --muted:     #94a3b8;
+    --radius:    12px;
+    --font:      'Segoe UI', system-ui, sans-serif;
+  }
+
+  body {
+    background: var(--bg);
+    color:      var(--text);
+    font-family: var(--font);
+    min-height: 100vh;
+    display:    flex;
+    flex-direction: column;
+  }
+
+  /* ── Header ──────────────────────────────────────────── */
+  header {
+    background:  var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding:     16px 24px;
+    display:     flex;
+    align-items: center;
+    gap:         16px;
+  }
+
+  .logo {
+    width: 40px; height: 40px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+  }
+
+  header h1 {
+    font-size: 18px; font-weight: 600;
+    color: var(--text);
+  }
+
+  header p {
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .header-right {
+    margin-left: auto;
+    display: flex; align-items: center; gap: 12px;
+  }
+
+  /* ── Status badge ────────────────────────────────────── */
+  .status-badge {
+    display: flex; align-items: center; gap: 6px;
+    padding: 5px 12px;
+    border-radius: 20px;
+    font-size: 12px; font-weight: 500;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    transition: all 0.3s;
+  }
+
+  .status-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--muted);
+    transition: background 0.3s;
+  }
+
+  .status-badge.connected .status-dot  { background: var(--green); }
+  .status-badge.connected              { border-color: var(--green); color: var(--green); }
+  .status-badge.error .status-dot      { background: var(--red); }
+
+  /* ── Lang badge ──────────────────────────────────────── */
+  .lang-badge {
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 1px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--accent2);
+  }
+
+  /* ── Layout ──────────────────────────────────────────── */
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 340px;
+    gap: 0;
+    flex: 1;
+    overflow: hidden;
+    height: calc(100vh - 73px);
+  }
+
+  /* ── Chat panel ──────────────────────────────────────── */
+  .chat-panel {
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+  }
+
+  .chat-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    scroll-behavior: smooth;
+  }
+
+  .chat-messages::-webkit-scrollbar { width: 4px; }
+  .chat-messages::-webkit-scrollbar-track { background: transparent; }
+  .chat-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Messages ────────────────────────────────────────── */
+  .msg {
+    display: flex;
+    gap: 10px;
+    animation: fadeUp 0.3s ease;
+    max-width: 85%;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(10px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .msg.user    { align-self: flex-end; flex-direction: row-reverse; }
+  .msg.bot     { align-self: flex-start; }
+  .msg.system  { align-self: center; max-width: 100%; }
+
+  .avatar {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px;
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+
+  .msg.user .avatar {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+  }
+
+  .msg.bot .avatar {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+  }
+
+  .bubble {
+    padding: 10px 14px;
+    border-radius: var(--radius);
+    font-size: 14px;
+    line-height: 1.6;
+    max-width: 100%;
+  }
+
+  .msg.user .bubble {
+    background: var(--accent);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .msg.bot .bubble {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+
+  .msg.system .bubble {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--muted);
+    text-align: center;
+    border-radius: 20px;
+    padding: 6px 16px;
+  }
+
+  .msg-meta {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 4px;
+    padding: 0 4px;
+  }
+
+  /* ── Typing indicator ────────────────────────────────── */
+  .typing .bubble {
+    display: flex; align-items: center; gap: 4px;
+    padding: 12px 16px;
+  }
+
+  .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--muted);
+    animation: bounce 1.2s infinite;
+  }
+
+  .dot:nth-child(2) { animation-delay: 0.2s; }
+  .dot:nth-child(3) { animation-delay: 0.4s; }
+
+  @keyframes bounce {
+    0%, 80%, 100% { transform: translateY(0); }
+    40%           { transform: translateY(-6px); }
+  }
+
+  /* ── Appointment card ────────────────────────────────── */
+  .appt-card {
+    background: var(--bg3);
+    border: 1px solid var(--green);
+    border-radius: var(--radius);
+    padding: 12px 14px;
+    margin-top: 8px;
+    font-size: 13px;
+  }
+
+  .appt-card-title {
+    color: var(--green);
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .appt-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 0;
+    border-bottom: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 12px;
+  }
+
+  .appt-row:last-child { border-bottom: none; }
+  .appt-row span:last-child { color: var(--text); font-weight: 500; }
+
+  /* ── Audio player ────────────────────────────────────── */
+  .audio-player {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: var(--bg);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+
+  .play-btn {
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: white;
+    flex-shrink: 0;
+    transition: background 0.2s;
+  }
+
+  .play-btn:hover { background: var(--accent2); }
+
+  .audio-bar {
+    flex: 1;
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .audio-fill {
+    height: 100%;
+    background: var(--accent);
+    width: 0%;
+    transition: width 0.1s linear;
+  }
+
+  .audio-dur {
+    font-size: 11px;
+    color: var(--muted);
+    min-width: 32px;
+    text-align: right;
+  }
+
+  /* ── Voice input area ────────────────────────────────── */
+  .input-area {
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    background: var(--bg2);
+  }
+
+  .phone-row {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .phone-row input {
+    flex: 1;
+    padding: 8px 12px;
+    border-radius: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .phone-row input:focus { border-color: var(--accent); }
+
+  .connect-btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: var(--accent);
+    border: none;
+    color: white;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, opacity 0.2s;
+  }
+
+  .connect-btn:hover   { background: var(--accent2); }
+  .connect-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .controls-row {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+  }
+
+  /* ── Mic button ──────────────────────────────────────── */
+  .mic-btn {
+    width: 52px; height: 52px;
+    border-radius: 50%;
+    background: var(--bg3);
+    border: 2px solid var(--border);
+    color: var(--muted);
+    font-size: 22px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.2s;
+    flex-shrink: 0;
+    position: relative;
+    overflow: visible;
+  }
+
+  .mic-btn:hover:not(:disabled) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .mic-btn.recording {
+    background: var(--red);
+    border-color: var(--red);
+    color: white;
+    animation: pulse-ring 1.2s infinite;
+  }
+
+  @keyframes pulse-ring {
+    0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.5); }
+    70%  { box-shadow: 0 0 0 14px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  }
+
+  .mic-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Text input ──────────────────────────────────────── */
+  .text-input-wrap {
+    flex: 1;
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .text-input {
+    flex: 1;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+    resize: none;
+    height: 48px;
+    line-height: 1.4;
+  }
+
+  .text-input:focus  { border-color: var(--accent); }
+  .text-input::placeholder { color: var(--muted); }
+
+  .send-btn {
+    width: 48px; height: 48px;
+    border-radius: 10px;
+    background: var(--accent);
+    border: none;
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.2s, opacity 0.2s;
+    flex-shrink: 0;
+  }
+
+  .send-btn:hover    { background: var(--accent2); }
+  .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Hint text ───────────────────────────────────────── */
+  .hint-text {
+    font-size: 11px;
+    color: var(--muted);
+    text-align: center;
+    margin-top: 8px;
+  }
+
+  /* ── Right sidebar ───────────────────────────────────── */
+  .sidebar {
+    background: var(--bg2);
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+  }
+
+  .sidebar::-webkit-scrollbar { width: 4px; }
+  .sidebar::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .sidebar-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+
+  /* ── Latency meter ───────────────────────────────────── */
+  .latency-grid {
+    display: grid;
+    gap: 8px;
+  }
+
+  .latency-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .latency-label {
+    font-size: 12px;
+    color: var(--muted);
+    width: 70px;
+    flex-shrink: 0;
+  }
+
+  .latency-bar-wrap {
+    flex: 1;
+    height: 5px;
+    background: var(--bg3);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+
+  .latency-bar {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.4s ease;
+    background: var(--green);
+    width: 0%;
+  }
+
+  .latency-bar.warn { background: var(--amber); }
+  .latency-bar.over { background: var(--red); }
+
+  .latency-val {
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text);
+    width: 42px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .latency-total {
+    margin-top: 10px;
+    padding: 10px;
+    background: var(--bg3);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+
+  .latency-total-label { font-size: 12px; color: var(--muted); }
+
+  .latency-total-val {
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ── Quick phrases ───────────────────────────────────── */
+  .phrases-grid {
+    display: grid;
+    gap: 6px;
+  }
+
+  .phrase-btn {
+    padding: 8px 10px;
+    border-radius: 8px;
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-size: 12px;
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.15s;
+    line-height: 1.4;
+  }
+
+  .phrase-btn:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .phrase-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Session info ────────────────────────────────────── */
+  .session-info {
+    display: grid;
+    gap: 6px;
+  }
+
+  .session-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 12px;
+    color: var(--muted);
+  }
+
+  .session-row span:last-child { color: var(--text); }
+
+  /* ── Transcript ──────────────────────────────────────── */
+  .transcript-box {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px;
+    font-size: 12px;
+    color: var(--text);
+    min-height: 50px;
+    line-height: 1.6;
+    font-style: italic;
+    transition: all 0.3s;
+  }
+
+  .transcript-box.active {
+    border-color: var(--red);
+    color: var(--text);
+  }
+
+  /* ── Responsive ──────────────────────────────────────── */
+  @media (max-width: 768px) {
+    .layout { grid-template-columns: 1fr; }
+    .sidebar { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header>
+  <div class="logo">🏥</div>
+  <div>
+    <h1>Voice AI Agent</h1>
+    <p>Clinical Appointment System</p>
+  </div>
+  <div class="header-right">
+    <div class="lang-badge" id="langBadge">EN</div>
+    <div class="status-badge" id="statusBadge">
+      <div class="status-dot"></div>
+      <span id="statusText">Disconnected</span>
+    </div>
+  </div>
+</header>
+
+<!-- ── Main layout ─────────────────────────────────────────── -->
+<div class="layout">
+
+  <!-- ── Chat panel ──────────────────────────────────────── -->
+  <div class="chat-panel">
+    <div class="chat-messages" id="chatMessages">
+      <div class="msg system">
+        <div class="bubble">
+          Enter your phone number and connect to start talking to the AI agent.
+        </div>
+      </div>
+    </div>
+
+    <!-- Input area -->
+    <div class="input-area">
+      <!-- Phone + connect row -->
+      <div class="phone-row">
+        <input type="tel" id="phoneInput"
+               placeholder="Patient phone number (e.g. 9876543210)"
+               value="9876543210"/>
+        <button class="connect-btn" id="connectBtn"
+                onclick="toggleConnection()">
+          Connect
+        </button>
+      </div>
+
+      <!-- Controls row -->
+      <div class="controls-row">
+        <!-- Mic button -->
+        <button class="mic-btn" id="micBtn"
+                onclick="toggleRecording()"
+                disabled title="Hold to record">
+          🎤
+        </button>
+
+        <!-- Text input + send -->
+        <div class="text-input-wrap">
+          <textarea class="text-input" id="textInput"
+                    placeholder="Type a message or use the mic..."
+                    disabled
+                    onkeydown="handleKeyDown(event)"></textarea>
+          <button class="send-btn" id="sendBtn"
+                  onclick="sendText()"
+                  disabled title="Send">
+            ➤
+          </button>
+        </div>
+      </div>
+
+      <div class="hint-text" id="hintText">
+        Connect first, then type or use the mic (English, Hindi, Tamil supported)
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Sidebar ──────────────────────────────────────────── -->
+  <div class="sidebar">
+
+    <!-- Latency panel -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">⚡ Latency Breakdown</div>
+      <div class="latency-grid">
+        <div class="latency-row">
+          <span class="latency-label">STT</span>
+          <div class="latency-bar-wrap">
+            <div class="latency-bar" id="barStt"></div>
+          </div>
+          <span class="latency-val" id="valStt">—</span>
+        </div>
+        <div class="latency-row">
+          <span class="latency-label">Language</span>
+          <div class="latency-bar-wrap">
+            <div class="latency-bar" id="barLang"></div>
+          </div>
+          <span class="latency-val" id="valLang">—</span>
+        </div>
+        <div class="latency-row">
+          <span class="latency-label">Agent</span>
+          <div class="latency-bar-wrap">
+            <div class="latency-bar" id="barAgent"></div>
+          </div>
+          <span class="latency-val" id="valAgent">—</span>
+        </div>
+        <div class="latency-row">
+          <span class="latency-label">TTS</span>
+          <div class="latency-bar-wrap">
+            <div class="latency-bar" id="barTts"></div>
+          </div>
+          <span class="latency-val" id="valTts">—</span>
+        </div>
+      </div>
+      <div class="latency-total">
+        <span class="latency-total-label">Total</span>
+        <span class="latency-total-val" id="valTotal">—</span>
+      </div>
+    </div>
+
+    <!-- Live transcript -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">📝 Live Transcript</div>
+      <div class="transcript-box" id="transcriptBox">
+        Transcript will appear here when you speak...
+      </div>
+    </div>
+
+    <!-- Quick phrases -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">💬 Quick Phrases</div>
+      <div class="phrases-grid" id="phrasesGrid">
+        <!-- English -->
+        <button class="phrase-btn" disabled
+                onclick="sendQuickPhrase(this.textContent)">
+          Book appointment with cardiologist tomorrow
+        </button>
+        <button class="phrase-btn" disabled
+                onclick="sendQuickPhrase(this.textContent)">
+          Cancel my appointment
+        </button>
+        <button class="phrase-btn" disabled
+                onclick="sendQuickPhrase(this.textContent)">
+          What slots are available on Friday?
+        </button>
+        <!-- Hindi -->
+        <button class="phrase-btn" disabled
+                onclick="sendQuickPhrase(this.textContent)">
+          मुझे कल डॉक्टर से मिलना है
+        </button>
+        <!-- Tamil -->
+        <button class="phrase-btn" disabled
+                onclick="sendQuickPhrase(this.textContent)">
+          நாளை மருத்துவரை பார்க்க வேண்டும்
+        </button>
+      </div>
+    </div>
+
+    <!-- Session info -->
+    <div class="sidebar-section">
+      <div class="sidebar-title">ℹ️ Session</div>
+      <div class="session-info">
+        <div class="session-row">
+          <span>Phone</span>
+          <span id="infoPhone">—</span>
+        </div>
+        <div class="session-row">
+          <span>Patient</span>
+          <span id="infoPatient">—</span>
+        </div>
+        <div class="session-row">
+          <span>Language</span>
+          <span id="infoLang">—</span>
+        </div>
+        <div class="session-row">
+          <span>Session ID</span>
+          <span id="infoSession">—</span>
+        </div>
+        <div class="session-row">
+          <span>Messages</span>
+          <span id="infoMsgs">0</span>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+</div><!-- /layout -->
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let ws           = null;
+let isConnected  = false;
+let isRecording  = false;
+let mediaRecorder= null;
+let audioChunks  = [];
+let msgCount     = 0;
+let currentLang  = "en";
+
+const WS_BASE    = "ws://localhost:8000/ws/voice";
+
+// ── DOM refs ───────────────────────────────────────────────
+const chatEl     = document.getElementById("chatMessages");
+const statusBadge= document.getElementById("statusBadge");
+const statusText = document.getElementById("statusText");
+const langBadge  = document.getElementById("langBadge");
+const micBtn     = document.getElementById("micBtn");
+const textInput  = document.getElementById("textInput");
+const sendBtn    = document.getElementById("sendBtn");
+const connectBtn = document.getElementById("connectBtn");
+const phoneInput = document.getElementById("phoneInput");
+const transcript = document.getElementById("transcriptBox");
+const hintText   = document.getElementById("hintText");
+
+
+// ── Connection ─────────────────────────────────────────────
+function toggleConnection() {
+  if (isConnected) {
+    disconnect();
+  } else {
+    connect();
+  }
+}
+
+function connect() {
+  const phone = phoneInput.value.trim();
+  if (!phone) {
+    alert("Please enter a phone number.");
+    return;
+  }
+
+  setStatus("connecting", "Connecting…");
+  connectBtn.disabled = true;
+
+  ws = new WebSocket(`${WS_BASE}/${phone}`);
+
+  ws.onopen = () => {
+    console.log("[WS] Connected");
+  };
+
+  ws.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+    handleServerMessage(data);
+  };
+
+  ws.onerror = (err) => {
+    console.error("[WS] Error:", err);
+    setStatus("error", "Connection error");
+    onDisconnected();
+  };
+
+  ws.onclose = () => {
+    console.log("[WS] Closed");
+    setStatus("disconnected", "Disconnected");
+    onDisconnected();
+  };
+}
+
+function disconnect() {
+  if (ws) ws.close();
+  onDisconnected();
+}
+
+function onDisconnected() {
+  isConnected = false;
+  connectBtn.textContent = "Connect";
+  connectBtn.disabled    = false;
+  setInputsEnabled(false);
+  setStatus("disconnected", "Disconnected");
+}
+
+
+// ── Message handler ────────────────────────────────────────
+function handleServerMessage(data) {
+  removeTypingIndicator();
+
+  if (data.type === "connected") {
+    isConnected = true;
+    connectBtn.textContent = "Disconnect";
+    connectBtn.disabled    = false;
+    setStatus("connected", "Connected");
+    setInputsEnabled(true);
+
+    // Update session info
+    document.getElementById("infoPhone").textContent   = phoneInput.value;
+    document.getElementById("infoPatient").textContent = data.patient || "—";
+    document.getElementById("infoSession").textContent =
+      data.session_id ? data.session_id.substring(0, 8) + "…" : "—";
+
+    addSystemMessage(`Connected as ${data.patient}. ${data.message}`);
+    return;
+  }
+
+  if (data.type === "error") {
+    addSystemMessage("⚠ " + data.message);
+    return;
+  }
+
+  if (data.type === "response") {
+    // Update language
+    if (data.language) {
+      currentLang = data.language;
+      updateLangBadge(data.language);
+      document.getElementById("infoLang").textContent =
+        { en: "English", hi: "Hindi", ta: "Tamil" }[data.language] || data.language;
+    }
+
+    // Show bot message
+    addBotMessage(data.text, data.audio, data.appointment, data.latency);
+
+    // Update latency panel
+    if (data.latency) updateLatency(data.latency);
+
+    // Update msg count
+    msgCount++;
+    document.getElementById("infoMsgs").textContent = msgCount;
+  }
+}
+
+
+// ── Send text ──────────────────────────────────────────────
+function sendText() {
+  const text = textInput.value.trim();
+  if (!text || !isConnected) return;
+
+  addUserMessage(text);
+  transcript.textContent = text;
+
+  ws.send(JSON.stringify({ type: "text", text }));
+  textInput.value = "";
+  showTypingIndicator();
+}
+
+function handleKeyDown(e) {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    sendText();
+  }
+}
+
+function sendQuickPhrase(text) {
+  if (!isConnected) return;
+  textInput.value = text;
+  sendText();
+}
+
+
+// ── Mic recording ──────────────────────────────────────────
+async function toggleRecording() {
+  if (!isConnected) return;
+
+  if (isRecording) {
+    stopRecording();
+  } else {
+    await startRecording();
+  }
+}
+
+async function startRecording() {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    audioChunks  = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm" });
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      const blob       = new Blob(audioChunks, { type: "audio/webm" });
+      const arrayBuffer= await blob.arrayBuffer();
+      const base64     = btoa(
+        String.fromCharCode(...new Uint8Array(arrayBuffer))
+      );
+
+      transcript.textContent = "Processing audio…";
+      transcript.classList.add("active");
+
+      ws.send(JSON.stringify({ type: "audio", data: base64 }));
+      showTypingIndicator();
+
+      // Stop all tracks
+      stream.getTracks().forEach(t => t.stop());
+    };
+
+    mediaRecorder.start();
+    isRecording = true;
+    micBtn.classList.add("recording");
+    micBtn.textContent = "⏹";
+    hintText.textContent = "Recording… click mic again to stop";
+    transcript.textContent = "Listening…";
+    transcript.classList.add("active");
+
+  } catch (err) {
+    console.error("Mic error:", err);
+    addSystemMessage("⚠ Microphone access denied. Use text input instead.");
+  }
+}
+
+function stopRecording() {
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+  isRecording = false;
+  micBtn.classList.remove("recording");
+  micBtn.textContent = "🎤";
+  hintText.textContent = "Click mic to record, or type below";
+  transcript.classList.remove("active");
+}
+
+
+// ── Chat rendering ─────────────────────────────────────────
+function addUserMessage(text) {
+  const el = document.createElement("div");
+  el.className = "msg user";
+  el.innerHTML = `
+    <div class="avatar">👤</div>
+    <div>
+      <div class="bubble">${escHtml(text)}</div>
+      <div class="msg-meta">${now()}</div>
+    </div>`;
+  chatEl.appendChild(el);
+  scrollBottom();
+}
+
+function addBotMessage(text, audioB64, appointment, latency) {
+  const el = document.createElement("div");
+  el.className = "msg bot";
+
+  let apptHtml = "";
+  if (appointment) {
+    apptHtml = `
+      <div class="appt-card">
+        <div class="appt-card-title">✅ Appointment Confirmed</div>
+        <div class="appt-row"><span>Doctor</span><span>${escHtml(appointment.doctor_name || "")}</span></div>
+        <div class="appt-row"><span>Specialty</span><span>${escHtml(appointment.specialty || "")}</span></div>
+        <div class="appt-row"><span>Hospital</span><span>${escHtml(appointment.hospital || "")}</span></div>
+        <div class="appt-row"><span>Date</span><span>${escHtml(appointment.date || "")}</span></div>
+        <div class="appt-row"><span>Time</span><span>${escHtml(appointment.time_slot || "")}</span></div>
+        <div class="appt-row"><span>ID</span><span>#${appointment.id || ""}</span></div>
+      </div>`;
+  }
+
+  let audioHtml = "";
+  let audioEl   = null;
+  if (audioB64) {
+    const uid    = "aud_" + Date.now();
+    audioHtml    = `
+      <div class="audio-player">
+        <button class="play-btn" onclick="toggleAudio('${uid}')" id="btn_${uid}">▶</button>
+        <div class="audio-bar">
+          <div class="audio-fill" id="fill_${uid}"></div>
+        </div>
+        <span class="audio-dur" id="dur_${uid}">0:00</span>
+      </div>`;
+  }
+
+  el.innerHTML = `
+    <div class="avatar">🤖</div>
+    <div style="max-width:100%">
+      <div class="bubble">
+        ${escHtml(text)}
+        ${apptHtml}
+        ${audioHtml}
+      </div>
+      <div class="msg-meta">${now()}${latency ? " · " + latency.total_ms + "ms" : ""}</div>
+    </div>`;
+
+  chatEl.appendChild(el);
+
+  // Attach audio after DOM insertion
+  if (audioB64) {
+    const uid    = el.querySelector(".audio-player").querySelector(".play-btn").id.replace("btn_", "");
+    const bytes  = atob(audioB64);
+    const arr    = new Uint8Array(bytes.length);
+    for (let i = 0; i < bytes.length; i++) arr[i] = bytes.charCodeAt(i);
+    const blob   = new Blob([arr], { type: "audio/mpeg" });
+    const url    = URL.createObjectURL(blob);
+    const audio  = new Audio(url);
+
+    audio.addEventListener("timeupdate", () => {
+      const pct  = audio.duration ? (audio.currentTime / audio.duration * 100) : 0;
+      const fill = document.getElementById("fill_" + uid);
+      const dur  = document.getElementById("dur_"  + uid);
+      if (fill) fill.style.width = pct + "%";
+      if (dur)  dur.textContent  = fmtTime(audio.currentTime);
+    });
+
+    audio.addEventListener("ended", () => {
+      const btn = document.getElementById("btn_" + uid);
+      if (btn) btn.textContent = "▶";
+      const fill = document.getElementById("fill_" + uid);
+      if (fill) fill.style.width = "0%";
+    });
+
+    // Store on element for toggle
+    el.querySelector(".play-btn").__audio = audio;
+
+    // Auto-play response
+    audio.play().catch(() => {});
+    el.querySelector(".play-btn").textContent = "⏸";
+  }
+
+  scrollBottom();
+}
+
+function toggleAudio(uid) {
+  const btn   = document.getElementById("btn_" + uid);
+  const audio = btn.__audio;
+  if (!audio) return;
+  if (audio.paused) {
+    audio.play();
+    btn.textContent = "⏸";
+  } else {
+    audio.pause();
+    btn.textContent = "▶";
+  }
+}
+
+function addSystemMessage(text) {
+  const el    = document.createElement("div");
+  el.className = "msg system";
+  el.innerHTML = `<div class="bubble">${escHtml(text)}</div>`;
+  chatEl.appendChild(el);
+  scrollBottom();
+}
+
+function showTypingIndicator() {
+  removeTypingIndicator();
+  const el    = document.createElement("div");
+  el.className = "msg bot typing";
+  el.id        = "typingIndicator";
+  el.innerHTML = `
+    <div class="avatar">🤖</div>
+    <div class="bubble">
+      <div class="dot"></div>
+      <div class="dot"></div>
+      <div class="dot"></div>
+    </div>`;
+  chatEl.appendChild(el);
+  scrollBottom();
+}
+
+function removeTypingIndicator() {
+  const el = document.getElementById("typingIndicator");
+  if (el) el.remove();
+}
+
+
+// ── Latency panel ──────────────────────────────────────────
+function updateLatency(lat) {
+  const target = 450;
+
+  function setBar(barId, valId, ms) {
+    const bar = document.getElementById(barId);
+    const val = document.getElementById(valId);
+    if (!bar || !val) return;
+    const pct  = Math.min((ms / target) * 100, 100);
+    bar.style.width = pct + "%";
+    bar.className   = "latency-bar" +
+      (ms > target * 0.7 ? " warn" : "") +
+      (ms > target       ? " over" : "");
+    val.textContent  = ms + "ms";
+  }
+
+  setBar("barStt",   "valStt",   lat.stt_ms   || 0);
+  setBar("barLang",  "valLang",  lat.lang_ms  || 0);
+  setBar("barAgent", "valAgent", lat.agent_ms || 0);
+  setBar("barTts",   "valTts",   lat.tts_ms   || 0);
+
+  const totalEl    = document.getElementById("valTotal");
+  const total      = lat.total_ms || 0;
+  totalEl.textContent  = total + "ms";
+  totalEl.style.color  = total > target ? "var(--red)"
+                       : total > target * 0.8 ? "var(--amber)"
+                       : "var(--green)";
+}
+
+
+// ── Status + lang ──────────────────────────────────────────
+function setStatus(state, text) {
+  statusBadge.className = "status-badge " + state;
+  statusText.textContent = text;
+}
+
+function updateLangBadge(lang) {
+  const labels = { en: "EN", hi: "HI", ta: "TA" };
+  langBadge.textContent = labels[lang] || lang.toUpperCase();
+}
+
+
+// ── Enable/disable inputs ──────────────────────────────────
+function setInputsEnabled(enabled) {
+  micBtn.disabled    = !enabled;
+  textInput.disabled = !enabled;
+  sendBtn.disabled   = !enabled;
+  hintText.textContent = enabled
+    ? "Click mic to record, or type and press Enter"
+    : "Connect first to start talking";
+  document.querySelectorAll(".phrase-btn").forEach(b => {
+    b.disabled = !enabled;
+  });
+}
+
+
+// ── Utilities ──────────────────────────────────────────────
+function escHtml(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/\n/g, "<br>");
+}
+
+function now() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function fmtTime(secs) {
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60).toString().padStart(2, "0");
+  return `${m}:${s}`;
+}
+
+function scrollBottom() {
+  chatEl.scrollTop = chatEl.scrollHeight;
+}
+</script>
+</body>
+</html>

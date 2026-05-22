@@ -1,0 +1,16 @@
+{
+  "patient_id": 1,
+  "preferred_language": "en",
+  "preferred_doctor": null,
+  "preferred_hospital": null,
+  "preferred_time": null,
+  "last_specialty": null,
+  "total_appointments": 0,
+  "cancelled_count": 0,
+  "rescheduled_count": 0,
+  "last_appointment": null,
+  "conversation_count": 0,
+  "notes": [],
+  "created_at": 1779439028.3890803,
+  "updated_at": 1779439028.3890803
+}
