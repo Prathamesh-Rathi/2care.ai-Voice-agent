@@ -111,6 +111,8 @@ xdg-open frontend/index.html
 Or just double-click `frontend/index.html` in your file explorer.
 
 ---
+UI - 
+<img width="1440" height="1082" alt="image" src="https://github.com/user-attachments/assets/fe88d77a-9808-4195-a9aa-5a1c1c895d7b" />
 
 ## 🧪 Test Patients (from seed data)
 
@@ -291,8 +293,7 @@ pip install -r requirements.txt
 | 10 | Latency logging + TTS caching | 🔜 |
 
 ---
-UI - 
-<img width="1440" height="1082" alt="image" src="https://github.com/user-attachments/assets/fe88d77a-9808-4195-a9aa-5a1c1c895d7b" />
+
 
 
 ## 🤝 Contributing
